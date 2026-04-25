@@ -292,8 +292,9 @@ with st.sidebar:
 
     module = st.radio(
         "View",
-        ["🏠  Overview", "🗺️  Process Builder", "📊  VSM Analysis",
-         "🔴  Bottleneck Breakdown", "💰  ROI Simulator", "🤖  AI Process Brief"],
+        ["🏠  Overview", "🗺️  Process Builder", "🗂️  VSM Diagram",
+         "📊  VSM Analysis", "🔴  Bottleneck Breakdown",
+         "💰  ROI Simulator", "🤖  AI Process Brief"],
         label_visibility="collapsed",
     )
 
@@ -540,6 +541,78 @@ NVA = pure waste (re-entry, rework, redundant checks).
             st.rerun()
 
 
+
+# ══════════════════════════════════════════════════════════════════════════════
+# MODULE: VSM DIAGRAM
+# ══════════════════════════════════════════════════════════════════════════════
+elif "VSM Diagram" in module:
+    st.markdown('<div class="section-label">VALUE STREAM MAP — CURRENT STATE</div>', unsafe_allow_html=True)
+    st.markdown("## VSM Diagram")
+
+    st.markdown("""
+<div style="background:#fff;border:1px solid #e2e8f0;border-left:3px solid #7c3aed;
+     border-radius:10px;padding:12px 18px;font-size:0.83rem;line-height:1.7;
+     color:#374151;margin-bottom:16px">
+<strong>Current State Value Stream Map</strong> — generated from your process data.
+Color coding: <span style="color:#16a34a;font-weight:600">green = Value-Added</span>,
+<span style="color:#ca8a04;font-weight:600">yellow = Necessary NVA</span>,
+<span style="color:#dc2626;font-weight:600">red = Non-Value-Added (pure waste)</span>.
+The zigzag timeline at the bottom is the signature VSM element — peaks up = cycle time,
+peaks down = wait time. The wider and lower the downward peaks, the more waste.
+</div>""", unsafe_allow_html=True)
+
+    if len(st.session_state.process_df) == 0:
+        st.warning("No process steps defined. Go to Process Builder to add steps.")
+    else:
+        proc_title = st.text_input("Process Name (for diagram title)", value="Business Process")
+        svg_content = generate_vsm_svg(st.session_state.process_df, proc_title)
+
+        st.markdown(
+            f'''<div style="overflow-x:auto;background:#fff;border:1px solid #e2e8f0;
+            border-radius:10px;padding:16px">{svg_content}</div>''',
+            unsafe_allow_html=True,
+        )
+
+        st.markdown("---")
+
+        res = run_analysis(st.session_state.process_df, daily_volume, working_days, hours_per_day)
+        c1,c2,c3,c4 = st.columns(4)
+        c1.metric("Total Lead Time",    f"{res['total_cycle_time']:.0f} min")
+        c2.metric("Value-Added Time",   f"{res['va_cycle_time']:.0f} min")
+        c3.metric("Process Efficiency", f"{res['process_efficiency']}%",
+                  delta="Below 50% — high waste" if res['process_efficiency'] < 50
+                  else ("Room to improve" if res['process_efficiency'] < 80 else "World-class"),
+                  delta_color="inverse" if res['process_efficiency'] < 50 else "normal")
+        c4.metric("Annual Waste Cost",  f"${res['total_waste_cost']:,.0f}")
+
+        st.markdown("---")
+        st.markdown("### How to Read This VSM")
+        col1, col2 = st.columns(2)
+        with col1:
+            st.markdown("""
+**Process Boxes** — each step in your process. Color = waste classification.
+CT is the active work time. Wait time is the queue before the step starts.
+
+**Push Arrows** — material/information flows step to step.
+
+**Inventory Triangles** — yellow triangles represent work waiting in queue.
+""")
+        with col2:
+            st.markdown("""
+**Zigzag Timeline** — the signature VSM element at the bottom.
+Peaks UP = cycle time. Peaks DOWN = wait/queue waste.
+
+**Process Efficiency** — VA time / total lead time.
+World-class back-office processes run >80%.
+""")
+
+        st.download_button(
+            label="⬇️ Download VSM as SVG",
+            data=svg_content,
+            file_name="vsm_current_state.svg",
+            mime="image/svg+xml",
+        )
+
 # ══════════════════════════════════════════════════════════════════════════════
 # MODULE: VSM ANALYSIS
 # ══════════════════════════════════════════════════════════════════════════════
@@ -748,8 +821,11 @@ improve total throughput without first addressing the bottleneck. Every other im
                        annotation_font_color="#ca8a04")
     fig_util.update_layout(
         **LIGHT, height=380, title="Step Utilization — Ranked (Demand ÷ Capacity)",
-        xaxis_title="Utilization (%)", xaxis=dict(range=[0, max(sdf["Utilization"].max() * 1.15, 110)]),
         yaxis=dict(autorange="reversed"),
+    )
+    fig_util.update_xaxes(
+        title_text="Utilization (%)",
+        range=[0, max(sdf["Utilization"].max() * 1.15, 110)],
     )
     st.plotly_chart(fig_util, use_container_width=True)
 
@@ -925,8 +1001,11 @@ and net ROI — so you can answer the question every manager needs answered befo
     fig_proj.add_hline(y=0, line_dash="dash", line_color="#94a3b8")
     fig_proj.update_layout(
         **LIGHT, height=260, title="5-Year Cumulative Net Benefit",
-        xaxis_title="Year", yaxis_title="Cumulative $ Benefit",
-        xaxis=dict(tickmode="array", tickvals=years),
+        yaxis_title="Cumulative $ Benefit",
+    )
+    fig_proj.update_xaxes(
+        title_text="Year",
+        tickmode="array", tickvals=years,
     )
     st.plotly_chart(fig_proj, use_container_width=True)
 
@@ -1060,3 +1139,480 @@ ProcessGap · Business Process Bottleneck Intelligence ·
 Value Stream Mapping · Six Sigma DMAIC · Utilization-Based Bottleneck Detection ·
 Built by Rutwik Satish · MS Engineering Management, Northeastern University
 </p>""", unsafe_allow_html=True)
+
+
+
+# ── VSM DIAGRAM GENERATOR (AIAG/Lean Standard) ───────────────────────────────
+def generate_vsm_svg(df: pd.DataFrame, process_name: str = "Business Process") -> str:
+    """
+    Generates a standards-compliant Value Stream Map as SVG.
+
+    Follows AIAG/Lean VSM conventions (Rother & Shook, Learning to See):
+    - Supplier icon (top left) with factory battlements
+    - Customer icon (top right) with factory battlements
+    - Production Control box (center top) with MRP/scheduling info
+    - Information flow arrows (straight = manual, zigzag = electronic)
+    - Process boxes with attached data boxes (C/T, Wait, Resources, Rework)
+    - Inventory triangles between steps with queue time
+    - Striped push arrows between process steps
+    - Operator icons below each step
+    - Kaizen burst on the primary bottleneck step
+    - Timeline zigzag at bottom (VA time up, wait/NVA time down)
+    - Summary box: Production Lead Time + Value-Added Time + Efficiency
+    """
+    steps = df.to_dict("records")
+    n = len(steps)
+    if n == 0:
+        return "<svg width='400' height='100'><text x='20' y='50' font-size='14' fill='#64748b'>No steps defined.</text></svg>"
+
+    def esc(s):
+        return str(s).replace("&","&amp;").replace("<","&lt;").replace(">","&gt;").replace('"',"&quot;")
+
+    # ── LAYOUT ────────────────────────────────────────────────────────────────
+    BOX_W      = 130    # process box width
+    BOX_H      = 60     # process box height
+    DATA_H     = 68     # data box height below process box
+    ARROW_W    = 55     # push arrow width
+    MARGIN_L   = 30
+    MARGIN_T   = 20
+
+    TOP_ROW_Y  = MARGIN_T + 10       # supplier/customer/production control row
+    PROC_ROW_Y = TOP_ROW_Y + 170     # process boxes row
+    DATA_ROW_Y = PROC_ROW_Y + BOX_H  # data boxes
+    OPS_ROW_Y  = DATA_ROW_Y + DATA_H + 8  # operator icons
+    TL_Y       = OPS_ROW_Y + 40     # timeline row
+    TL_H       = 56
+    FOOT_Y     = TL_Y + TL_H + 30
+
+    total_width  = MARGIN_L * 2 + n * (BOX_W + ARROW_W) + 180
+    total_height = FOOT_Y + 80
+
+    # Color palette
+    TYPE_BG     = {"Value-Added (VA)": "#dcfce7", "Necessary Non-Value-Added (NNVA)": "#fef9c3", "Non-Value-Added (NVA)": "#fee2e2"}
+    TYPE_BORDER = {"Value-Added (VA)": "#16a34a", "Necessary Non-Value-Added (NNVA)": "#ca8a04", "Non-Value-Added (NVA)": "#dc2626"}
+    TYPE_SHORT  = {"Value-Added (VA)": "VA", "Necessary Non-Value-Added (NNVA)": "NNVA", "Non-Value-Added (NVA)": "NVA"}
+
+    # Find bottleneck (highest utilization)
+    total_ct = sum(s.get("Cycle Time (min)", 0) for s in steps)
+    total_wt = sum(s.get("Wait Time Before (min)", 0) for s in steps)
+    va_ct    = sum(s.get("Cycle Time (min)", 0) for s in steps if s.get("Step Type","") == "Value-Added (VA)")
+    lead_time = total_ct + total_wt
+    efficiency = round(va_ct / lead_time * 100, 1) if lead_time > 0 else 0
+
+    # Identify bottleneck: step with highest utilization
+    max_util_idx = 0
+    max_util = 0
+    for i, s in enumerate(steps):
+        ct = s.get("Cycle Time (min)", 1)
+        res = max(1, s.get("Resources", 1))
+        util = 1 / (ct * res) if ct > 0 else 0  # higher = more constrained
+        if util > max_util:
+            max_util = util
+            max_util_idx = i
+
+    L = []  # SVG lines collector
+
+    L.append(f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_width}" height="{total_height}" '
+             f'style="background:#ffffff;font-family:Arial,sans-serif">')
+
+    # ── DEFS: patterns and markers ────────────────────────────────────────────
+    L.append("""<defs>
+  <pattern id="push_stripe" patternUnits="userSpaceOnUse" width="6" height="6" patternTransform="rotate(45)">
+    <rect width="3" height="6" fill="#374151" opacity="0.7"/>
+  </pattern>
+  <marker id="arr" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="#374151"/>
+  </marker>
+  <marker id="arr_blue" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="#2563eb"/>
+  </marker>
+  <marker id="arr_info" markerWidth="8" markerHeight="6" refX="8" refY="3" orient="auto">
+    <polygon points="0 0, 8 3, 0 6" fill="#475569"/>
+  </marker>
+</defs>""")
+
+    # ── TITLE ─────────────────────────────────────────────────────────────────
+    L.append(f'<text x="{total_width//2}" y="18" font-size="13" font-weight="700" '
+             f'fill="#0f172a" text-anchor="middle">VALUE STREAM MAP — CURRENT STATE</text>')
+    L.append(f'<text x="{total_width//2}" y="32" font-size="9" fill="#64748b" text-anchor="middle">'
+             f'{esc(process_name)} · {n} Steps · ProcessGap</text>')
+
+    # ── HELPER: factory icon (supplier / customer) ────────────────────────────
+    def factory_icon(x, y, w, h, label, sublabel=""):
+        """Standard VSM factory/building icon with battlements on top."""
+        # Battlements (zigzag top) — 5 teeth
+        teeth = 5
+        tw = w // teeth
+        batt = []
+        for t in range(teeth):
+            batt_x = x + t * tw
+            batt.append(f"{batt_x},{y+12}")
+            batt.append(f"{batt_x},{y}")
+            batt.append(f"{batt_x+tw//2},{y}")
+            batt.append(f"{batt_x+tw//2},{y+12}")
+        batt_str = " ".join(batt)
+        L.append(f'<polygon points="{x},{y+h} {x},{y+12} {batt_str} {x+w},{y+12} {x+w},{y+h}" '
+                 f'fill="#f1f5f9" stroke="#334155" stroke-width="1.5" stroke-linejoin="round"/>')
+        L.append(f'<text x="{x+w//2}" y="{y+h-28}" font-size="9" font-weight="700" '
+                 f'fill="#0f172a" text-anchor="middle">{esc(label)}</text>')
+        if sublabel:
+            L.append(f'<text x="{x+w//2}" y="{y+h-16}" font-size="8" '
+                     f'fill="#475569" text-anchor="middle">{esc(sublabel)}</text>')
+
+    # ── HELPER: production control box ────────────────────────────────────────
+    def prod_control_box(x, y, w, h, label="Production\nControl"):
+        L.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" '
+                 f'fill="#eff6ff" stroke="#2563eb" stroke-width="1.5" rx="4"/>')
+        for i, line in enumerate(label.split("\n")):
+            L.append(f'<text x="{x+w//2}" y="{y+22+i*14}" font-size="10" font-weight="700" '
+                     f'fill="#2563eb" text-anchor="middle">{esc(line)}</text>')
+        # MRP label
+        L.append(f'<text x="{x+w//2}" y="{y+h-8}" font-size="8" '
+                 f'fill="#64748b" text-anchor="middle">MRP / Scheduling</text>')
+
+    # ── HELPER: process box + data box ────────────────────────────────────────
+    def process_box(x, y, step, is_bottleneck=False):
+        stype  = step.get("Step Type", "Value-Added (VA)")
+        bg     = TYPE_BG.get(stype, "#f1f5f9")
+        border = TYPE_BORDER.get(stype, "#64748b")
+        short  = TYPE_SHORT.get(stype, "VA")
+        name   = esc(step.get("Process Step", "Step"))
+        ct     = step.get("Cycle Time (min)", 0)
+        wt     = step.get("Wait Time Before (min)", 0)
+        res    = step.get("Resources", 1)
+        rework = step.get("Rework Rate (%)", 0)
+
+        # Shadow
+        L.append(f'<rect x="{x+2}" y="{y+2}" width="{BOX_W}" height="{BOX_H}" rx="3" fill="#e2e8f0"/>')
+        # Main process box
+        L.append(f'<rect x="{x}" y="{y}" width="{BOX_W}" height="{BOX_H}" '
+                 f'rx="3" fill="{bg}" stroke="{border}" stroke-width="2"/>')
+
+        # Type badge
+        L.append(f'<rect x="{x+BOX_W-30}" y="{y+3}" width="27" height="13" '
+                 f'rx="2" fill="{border}"/>')
+        L.append(f'<text x="{x+BOX_W-17}" y="{y+13}" font-size="8" '
+                 f'fill="white" text-anchor="middle" font-weight="700">{esc(short)}</text>')
+
+        # Step name (two lines if needed)
+        if len(name) > 15:
+            words = name.split(" ")
+            mid = len(words) // 2
+            line1 = " ".join(words[:mid])
+            line2 = " ".join(words[mid:])
+            L.append(f'<text x="{x+BOX_W//2}" y="{y+22}" font-size="9" font-weight="700" '
+                     f'fill="#0f172a" text-anchor="middle">{esc(line1[:18])}</text>')
+            L.append(f'<text x="{x+BOX_W//2}" y="{y+34}" font-size="9" font-weight="700" '
+                     f'fill="#0f172a" text-anchor="middle">{esc(line2[:18])}</text>')
+        else:
+            L.append(f'<text x="{x+BOX_W//2}" y="{y+28}" font-size="9" font-weight="700" '
+                     f'fill="#0f172a" text-anchor="middle">{esc(name)}</text>')
+
+        # Uptime / availability indicator
+        uptime = max(0, 100 - rework * 2)
+        L.append(f'<text x="{x+6}" y="{y+BOX_H-6}" font-size="8" fill="#64748b">'
+                 f'Uptime: {uptime:.0f}%</text>')
+
+        # Data box (attached below)
+        dy = y + BOX_H
+        L.append(f'<rect x="{x}" y="{dy}" width="{BOX_W}" height="{DATA_H}" '
+                 f'fill="#f8fafc" stroke="{border}" stroke-width="1.2" stroke-dasharray="3,2"/>')
+        # Data lines — standard VSM data box format
+        data_lines = [
+            ("C/T =", f"{ct} min"),
+            ("Wait =", f"{int(wt)} min"),
+            ("Res =", f"{int(res)} people"),
+            ("Rework =", f"{rework}%"),
+        ]
+        for j, (key, val) in enumerate(data_lines):
+            L.append(f'<text x="{x+5}" y="{dy+13+j*14}" font-size="8" fill="#374151">'
+                     f'<tspan font-weight="700">{esc(key)}</tspan> {esc(val)}</text>')
+
+        # Kaizen burst on bottleneck
+        if is_bottleneck:
+            kx, ky = x + BOX_W - 22, y - 22
+            burst_pts = []
+            import math
+            for a in range(0, 360, 20):
+                r = 18 if a % 40 == 0 else 12
+                bx = kx + r * math.cos(math.radians(a))
+                by = ky + r * math.sin(math.radians(a))
+                burst_pts.append(f"{bx:.1f},{by:.1f}")
+            L.append(f'<polygon points="{" ".join(burst_pts)}" '
+                     f'fill="#fef08a" stroke="#ca8a04" stroke-width="1.5"/>')
+            L.append(f'<text x="{kx}" y="{ky-2}" font-size="7" fill="#92400e" '
+                     f'text-anchor="middle" font-weight="700">KAIZEN!</text>')
+            L.append(f'<text x="{kx}" y="{ky+8}" font-size="7" fill="#92400e" '
+                     f'text-anchor="middle">Bottleneck</text>')
+
+    # ── HELPER: operator icon ─────────────────────────────────────────────────
+    def operator_icon(cx, y, count=1):
+        """Standard VSM operator icon: circle head + stick body."""
+        L.append(f'<circle cx="{cx}" cy="{y+6}" r="6" fill="none" stroke="#7c3aed" stroke-width="1.5"/>')
+        L.append(f'<line x1="{cx}" y1="{y+12}" x2="{cx}" y2="{y+26}" stroke="#7c3aed" stroke-width="1.5"/>')
+        L.append(f'<line x1="{cx-7}" y1="{y+18}" x2="{cx+7}" y2="{y+18}" stroke="#7c3aed" stroke-width="1.5"/>')
+        L.append(f'<line x1="{cx}" y1="{y+26}" x2="{cx-5}" y2="{y+36}" stroke="#7c3aed" stroke-width="1.5"/>')
+        L.append(f'<line x1="{cx}" y1="{y+26}" x2="{cx+5}" y2="{y+36}" stroke="#7c3aed" stroke-width="1.5"/>')
+        if count > 1:
+            L.append(f'<text x="{cx+10}" y="{y+20}" font-size="9" fill="#7c3aed" font-weight="700">×{count}</text>')
+
+    # ── HELPER: push arrow (striped, standard VSM) ────────────────────────────
+    def push_arrow(x, y, w, h=18):
+        cy = y + h // 2
+        L.append(f'<rect x="{x}" y="{y}" width="{w-10}" height="{h}" '
+                 f'fill="url(#push_stripe)" stroke="#374151" stroke-width="1"/>')
+        L.append(f'<polygon points="{x+w-10},{y} {x+w},{cy} {x+w-10},{y+h}" fill="#374151"/>')
+
+    # ── HELPER: inventory triangle ────────────────────────────────────────────
+    def inv_triangle(cx, y, qty_label):
+        h = 20
+        w = 24
+        L.append(f'<polygon points="{cx},{y} {cx-w//2},{y+h} {cx+w//2},{y+h}" '
+                 f'fill="#fef9c3" stroke="#ca8a04" stroke-width="1.5"/>')
+        L.append(f'<text x="{cx}" y="{y+h+11}" font-size="8" fill="#92400e" '
+                 f'text-anchor="middle" font-weight="600">{esc(qty_label)}</text>')
+        # I label inside
+        L.append(f'<text x="{cx}" y="{y+h-4}" font-size="9" fill="#92400e" '
+                 f'text-anchor="middle" font-style="italic" font-weight="700">I</text>')
+
+    # ── HELPER: straight info flow arrow ─────────────────────────────────────
+    def info_arrow_straight(x1, y1, x2, y2, label=""):
+        L.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" '
+                 f'stroke="#475569" stroke-width="1.5" marker-end="url(#arr_info)"/>')
+        if label:
+            mx, my = (x1+x2)//2, (y1+y2)//2
+            L.append(f'<rect x="{mx-20}" y="{my-9}" width="40" height="12" '
+                     f'rx="2" fill="white" opacity="0.8"/>')
+            L.append(f'<text x="{mx}" y="{my}" font-size="8" fill="#374151" '
+                     f'text-anchor="middle">{esc(label)}</text>')
+
+    # ── HELPER: electronic info flow (zigzag arrow) ───────────────────────────
+    def info_arrow_zigzag(x1, y1, x2, y2, label=""):
+        mx = (x1 + x2) // 2
+        my = (y1 + y2) // 2
+        amp = 12
+        path = f"M {x1} {y1} "
+        segs = 6
+        for s in range(segs):
+            t = s / segs
+            t2 = (s+1) / segs
+            px1 = x1 + t * (x2 - x1)
+            py1 = y1 + t * (y2 - y1) + (amp if s % 2 == 0 else -amp)
+            px2 = x1 + t2 * (x2 - x1)
+            py2 = y1 + t2 * (y2 - y1) + (-amp if s % 2 == 0 else amp)
+            path += f"L {px1:.0f} {py1:.0f} L {px2:.0f} {py2:.0f} "
+        path += f"L {x2} {y2}"
+        L.append(f'<path d="{path}" fill="none" stroke="#2563eb" stroke-width="1.5" '
+                 f'marker-end="url(#arr_blue)"/>')
+        if label:
+            L.append(f'<rect x="{mx-22}" y="{my-9}" width="44" height="12" '
+                     f'rx="2" fill="white" opacity="0.9"/>')
+            L.append(f'<text x="{mx}" y="{my}" font-size="8" fill="#2563eb" '
+                     f'text-anchor="middle">{esc(label)}</text>')
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # DRAW TOP ROW: Supplier → Production Control → Customer
+    # ══════════════════════════════════════════════════════════════════════════
+    FACTORY_W = 110
+    FACTORY_H = 70
+    PC_W      = 130
+    PC_H      = 65
+
+    # Supplier (top left)
+    sup_x = MARGIN_L
+    sup_y = TOP_ROW_Y + 20
+    factory_icon(sup_x, sup_y, FACTORY_W, FACTORY_H, "SUPPLIER / TRIGGER", "Process Input")
+
+    # Production Control (center)
+    pc_x = (total_width - PC_W) // 2
+    pc_y = TOP_ROW_Y + 20
+    prod_control_box(pc_x, pc_y, PC_W, PC_H)
+
+    # Customer (top right)
+    cust_x = total_width - FACTORY_W - MARGIN_L
+    cust_y = TOP_ROW_Y + 20
+    factory_icon(cust_x, cust_y, FACTORY_W, FACTORY_H, "CUSTOMER / END USER", "Process Output")
+
+    # Information flows: Supplier ↔ Production Control (electronic)
+    info_arrow_zigzag(sup_x + FACTORY_W, sup_y + FACTORY_H//2,
+                      pc_x, pc_y + PC_H//2, "Demand / Forecast")
+    # Production Control → Customer (manual)
+    info_arrow_straight(pc_x + PC_W, pc_y + PC_H//2,
+                        cust_x, cust_y + FACTORY_H//2, "Daily Order")
+
+    # Production Control → Process flow (scheduling arrows down)
+    pc_mid_x = pc_x + PC_W // 2
+    sched_y2 = PROC_ROW_Y - 10
+    L.append(f'<line x1="{pc_mid_x}" y1="{pc_y+PC_H}" x2="{pc_mid_x}" y2="{sched_y2}" '
+             f'stroke="#2563eb" stroke-width="1.5" stroke-dasharray="5,3" marker-end="url(#arr_blue)"/>')
+    L.append(f'<text x="{pc_mid_x+5}" y="{(pc_y+PC_H+sched_y2)//2}" font-size="8" fill="#2563eb">'
+             f'Work Orders</text>')
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # DRAW PROCESS ROW: Steps + Inventory + Push arrows
+    # ══════════════════════════════════════════════════════════════════════════
+    proc_xs = []  # x position of each process box
+    for i, step in enumerate(steps):
+        px = MARGIN_L + i * (BOX_W + ARROW_W)
+        proc_xs.append(px)
+
+        # Inventory triangle BEFORE this step (wait time)
+        if i > 0:
+            wt = step.get("Wait Time Before (min)", 0)
+            tri_cx = px - ARROW_W // 2
+            if wt >= 60:
+                wt_label = f"{wt/60:.1f}h"
+            else:
+                wt_label = f"{int(wt)}m"
+            inv_triangle(tri_cx, PROC_ROW_Y + BOX_H//2 - 10, wt_label)
+
+            # Push arrow
+            push_x = px - ARROW_W + 4
+            push_y = PROC_ROW_Y + BOX_H//2 - 9
+            push_arrow(push_x, push_y, ARROW_W - 8)
+
+        # Process box + data box
+        is_bn = (i == max_util_idx)
+        process_box(px, PROC_ROW_Y, step, is_bottleneck=is_bn)
+
+        # Operator icon
+        op_cx = px + BOX_W // 2
+        res = max(1, int(step.get("Resources", 1)))
+        operator_icon(op_cx, OPS_ROW_Y, count=res)
+
+    # Arrow from last step to Customer
+    last_x = proc_xs[-1] + BOX_W + 8 if proc_xs else MARGIN_L
+    cust_arr_y = PROC_ROW_Y + BOX_H // 2
+    if last_x < cust_x:
+        push_arrow(last_x, cust_arr_y - 9, cust_x - last_x - 4)
+    L.append(f'<line x1="{cust_x}" y1="{cust_y+FACTORY_H}" x2="{cust_x+FACTORY_W//2}" '
+             f'y2="{PROC_ROW_Y+BOX_H//2}" stroke="#334155" stroke-width="1.5" '
+             f'stroke-dasharray="4,3" marker-end="url(#arr_info)"/>')
+
+    # Supplier delivery arrow to first step
+    del_y = PROC_ROW_Y + BOX_H//2
+    L.append(f'<line x1="{sup_x+FACTORY_W}" y1="{sup_y+FACTORY_H//2}" '
+             f'x2="{proc_xs[0]}" y2="{del_y}" stroke="#334155" stroke-width="1.5" '
+             f'marker-end="url(#arr_info)"/>')
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # TIMELINE ZIGZAG (standard VSM bottom timeline)
+    # VA time = peaks UP, Wait/NVA time = peaks DOWN
+    # ══════════════════════════════════════════════════════════════════════════
+    tl_baseline = TL_Y + TL_H // 2
+    tl_up       = TL_Y + 6
+    tl_down     = TL_Y + TL_H - 6
+    tl_x        = MARGIN_L
+
+    # Timeline label
+    L.append(f'<text x="{MARGIN_L}" y="{TL_Y - 6}" font-size="10" font-weight="700" '
+             f'fill="#0f172a">Lead Time Timeline</text>')
+    L.append(f'<text x="{MARGIN_L + 140}" y="{TL_Y - 6}" font-size="8" fill="#64748b">'
+             f'▲ Cycle Time (VA=green, NVA=red)   ▼ Wait / Queue Time</text>')
+
+    # Baseline
+    L.append(f'<line x1="{MARGIN_L}" y1="{tl_baseline}" x2="{total_width - MARGIN_L}" '
+             f'y2="{tl_baseline}" stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"/>')
+
+    # Build zigzag points list + time labels
+    max_time = max((s.get("Cycle Time (min)", 0) + s.get("Wait Time Before (min)", 0)) for s in steps) or 1
+    total_tl_width = total_width - MARGIN_L * 2 - 200
+    scale = total_tl_width / (lead_time if lead_time > 0 else 1)
+
+    pts = [(tl_x, tl_baseline)]
+    time_labels = []
+
+    for i, step in enumerate(steps):
+        ct   = step.get("Cycle Time (min)", 0)
+        wt   = step.get("Wait Time Before (min)", 0) if i > 0 else 0
+        stype = step.get("Step Type", "Value-Added (VA)")
+        ct_color = "#16a34a" if stype == "Value-Added (VA)" else ("#dc2626" if "NVA" in stype else "#ca8a04")
+
+        # Wait segment — peak DOWN
+        if wt > 0:
+            ww = max(20, int(wt * scale))
+            pts.append((tl_x + ww // 2, tl_down))
+            pts.append((tl_x + ww, tl_baseline))
+            wt_str = f"{int(wt)}m" if wt < 60 else f"{wt/60:.1f}h"
+            time_labels.append({"x": tl_x + ww//2, "y": tl_down + 14, "text": wt_str, "color": "#dc2626"})
+            tl_x += ww
+
+        # Cycle time segment — peak UP
+        if ct > 0:
+            cw = max(24, int(ct * scale))
+            pts.append((tl_x + cw // 2, tl_up))
+            pts.append((tl_x + cw, tl_baseline))
+            ct_str = f"{ct}m"
+            time_labels.append({"x": tl_x + cw//2, "y": tl_up - 4, "text": ct_str, "color": ct_color})
+            tl_x += cw
+
+    # Draw zigzag polyline
+    if len(pts) > 1:
+        pts_str = " ".join(f"{p[0]:.0f},{p[1]:.0f}" for p in pts)
+        L.append(f'<polyline points="{pts_str}" fill="none" stroke="#7c3aed" '
+                 f'stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round"/>')
+
+    # Time labels
+    for t in time_labels:
+        tx = t['x']
+        ty = t['y']
+        tc = t['color']
+        tt = t['text']
+        L.append(f'<text x="{tx:.0f}" y="{ty}" font-size="8" fill="{tc}" '
+                 f'text-anchor="middle" font-weight="700">{esc(tt)}</text>')
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # SUMMARY BOX (bottom right) — Production Lead Time + VA Time + Efficiency
+    # ══════════════════════════════════════════════════════════════════════════
+    sb_x = total_width - 185 - MARGIN_L
+    sb_y = TL_Y
+    sb_w = 185
+    sb_h = TL_H + 20
+
+    L.append(f'<rect x="{sb_x}" y="{sb_y}" width="{sb_w}" height="{sb_h}" '
+             f'rx="5" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>')
+    L.append(f'<rect x="{sb_x}" y="{sb_y}" width="{sb_w}" height="20" '
+             f'rx="5" fill="#7c3aed"/>')
+    L.append(f'<text x="{sb_x+sb_w//2}" y="{sb_y+14}" font-size="10" font-weight="700" '
+             f'fill="white" text-anchor="middle">PROCESS SUMMARY</text>')
+
+    lt_str = f"{lead_time:.0f} min" if lead_time < 60 else f"{lead_time/60:.1f} hrs"
+    va_str = f"{va_ct:.0f} min" if va_ct < 60 else f"{va_ct/60:.1f} hrs"
+    waste_str = f"{lead_time-va_ct:.0f} min" if (lead_time-va_ct) < 60 else f"{(lead_time-va_ct)/60:.1f} hrs"
+
+    eff_color = "#16a34a" if efficiency >= 70 else ("#ca8a04" if efficiency >= 40 else "#dc2626")
+    summary_rows = [
+        ("Production Lead Time:", lt_str, "#374151"),
+        ("Value-Added Time:", va_str, "#16a34a"),
+        ("Waste Time:", waste_str, "#dc2626"),
+        ("Process Efficiency:", f"{efficiency}%", eff_color),
+    ]
+    for j, (k, v, c) in enumerate(summary_rows):
+        L.append(f'<text x="{sb_x+8}" y="{sb_y+36+j*17}" font-size="9" fill="#374151">'
+                 f'<tspan font-weight="700">{esc(k)}</tspan></text>')
+        L.append(f'<text x="{sb_x+sb_w-8}" y="{sb_y+36+j*17}" font-size="9" '
+                 f'fill="{c}" text-anchor="end" font-weight="700">{esc(v)}</text>')
+
+    # ══════════════════════════════════════════════════════════════════════════
+    # LEGEND
+    # ══════════════════════════════════════════════════════════════════════════
+    leg_y = FOOT_Y + 10
+    L.append(f'<text x="{MARGIN_L}" y="{leg_y}" font-size="9" font-weight="700" fill="#374151">LEGEND:</text>')
+
+    legend_items = [
+        ("#dcfce7","#16a34a","Value-Added (VA)"),
+        ("#fef9c3","#ca8a04","Necessary NVA"),
+        ("#fee2e2","#dc2626","Non-Value-Added (NVA)"),
+        ("#fef08a","#ca8a04","Kaizen Burst (Bottleneck)"),
+        ("#f1f5f9","#334155","Supplier / Customer"),
+        ("#eff6ff","#2563eb","Production Control"),
+    ]
+    lx = MARGIN_L + 60
+    for bg, border, label in legend_items:
+        L.append(f'<rect x="{lx}" y="{leg_y-9}" width="14" height="10" '
+                 f'rx="2" fill="{bg}" stroke="{border}" stroke-width="1.2"/>')
+        L.append(f'<text x="{lx+17}" y="{leg_y}" font-size="8.5" fill="#374151">{esc(label)}</text>')
+        lx += len(label) * 6.5 + 32
+
+    L.append("</svg>")
+    return "\n".join(L)
