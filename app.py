@@ -141,13 +141,29 @@ hr { border-color: #e2e8f0 !important; }
 </style>
 """, unsafe_allow_html=True)
 
-LIGHT = dict(
-    template="plotly_white",
-    paper_bgcolor="#f8f9fb", plot_bgcolor="#fff",
-    font=dict(color="#1a1f2e", family="DM Sans"),
-    margin=dict(t=40, b=44, l=12, r=12),
-)
-# Apply to every figure after update_layout:
+def apply_light(fig, height=None, title=None, xaxis_title=None, yaxis_title=None,
+               extra_layout=None):
+    """Single helper that applies all chart styling — eliminates **LIGHT conflicts."""
+    layout_args = dict(
+        template="plotly_white",
+        paper_bgcolor="#f8f9fb",
+        plot_bgcolor="#fff",
+        font=dict(color="#1a1f2e", family="DM Sans"),
+        margin=dict(t=40, b=44, l=12, r=12),
+    )
+    if height:        layout_args["height"] = height
+    if title:         layout_args["title"] = title
+    if xaxis_title:   layout_args["xaxis_title"] = xaxis_title
+    if yaxis_title:   layout_args["yaxis_title"] = yaxis_title
+    if extra_layout:  layout_args.update(extra_layout)
+    fig.update_layout(**layout_args)
+    fig.update_xaxes(gridcolor="#f1f5f9", linecolor="#e2e8f0", tickfont=dict(color="#64748b"))
+    fig.update_yaxes(gridcolor="#f1f5f9", linecolor="#e2e8f0", tickfont=dict(color="#64748b"))
+    return fig
+
+# Keep for any remaining direct references
+LIGHT = dict(template="plotly_white", paper_bgcolor="#f8f9fb", plot_bgcolor="#fff",
+             font=dict(color="#1a1f2e", family="DM Sans"), margin=dict(t=40, b=44, l=12, r=12))
 AXIS_STYLE = dict(gridcolor="#f1f5f9", linecolor="#e2e8f0", tickfont=dict(color="#64748b"))
 
 STEP_TYPES = ["Value-Added (VA)", "Necessary Non-Value-Added (NNVA)", "Non-Value-Added (NVA)"]
@@ -1170,14 +1186,12 @@ elif "VSM" in module:
             opacity=0.6,
         ))
 
-        fig_vsm.update_layout(
-            **LIGHT, barmode="stack", height=300,
-            title="Cycle Time + Wait Time Breakdown by Step",
-            yaxis_title="Minutes",
-            legend=dict(orientation="h", y=1.12, x=0),
-        )
-        fig_vsm.update_xaxes(tickangle=-30, tickfont=dict(size=10), **AXIS_STYLE)
-        fig_vsm.update_yaxes(**AXIS_STYLE)
+        apply_light(fig_vsm, height=300,
+                    title="Cycle Time + Wait Time Breakdown by Step",
+                    yaxis_title="Minutes",
+                    extra_layout=dict(barmode="stack",
+                                     legend=dict(orientation="h", y=1.12, x=0)))
+        fig_vsm.update_xaxes(tickangle=-30)
         st.plotly_chart(fig_vsm, width='stretch')
 
     st.markdown("---")
@@ -1295,15 +1309,11 @@ improve total throughput without first addressing the bottleneck. Every other im
                        annotation_text="80% = Risk zone",
                        annotation_position="bottom right",
                        annotation_font_color="#ca8a04")
-    fig_util.update_layout(
-        **LIGHT, height=380, title="Step Utilization — Ranked (Demand ÷ Capacity)",
-    )
-    fig_util.update_xaxes(
-        title_text="Utilization (%)",
-        range=[0, max(sdf["Utilization"].max() * 1.15, 110)],
-        **AXIS_STYLE
-    )
-    fig_util.update_yaxes(autorange="reversed", **AXIS_STYLE)
+    apply_light(fig_util, height=380,
+                title="Step Utilization — Ranked (Demand ÷ Capacity)")
+    fig_util.update_xaxes(title_text="Utilization (%)",
+                          range=[0, max(sdf["Utilization"].max() * 1.15, 110)])
+    fig_util.update_yaxes(autorange="reversed")
     st.plotly_chart(fig_util, width='stretch')
 
     st.markdown("---")
@@ -1317,12 +1327,10 @@ improve total throughput without first addressing the bottleneck. Every other im
         text=[f"${v:,.0f}" for v in cost_ranked["Total_Step_Cost"]],
         textposition="outside",
     ))
-    fig_cost.update_layout(
-        **LIGHT, height=320, title="Annual Cost per Step (Cycle + Wait + Rework)",
-        yaxis_title="Annual Cost ($)",
-    )
-    fig_cost.update_xaxes(tickangle=-30, **AXIS_STYLE)
-    fig_cost.update_yaxes(**AXIS_STYLE)
+    apply_light(fig_cost, height=320,
+                title="Annual Cost per Step (Cycle + Wait + Rework)",
+                yaxis_title="Annual Cost ($)")
+    fig_cost.update_xaxes(tickangle=-30)
     st.plotly_chart(fig_cost, width='stretch')
 
     # Ranked table
@@ -1458,11 +1466,9 @@ and net ROI — so you can answer the question every manager needs answered befo
         text=[f"${abs(v):,.0f}" for v in [orig_cost, annual_saving, investment_cost, net_roi]],
         textposition="outside",
     ))
-    fig_wf.update_layout(**LIGHT, height=300,
-                         title="Improvement Economics — Before vs. After",
-                         yaxis_title="Annual $ Impact")
-    fig_wf.update_xaxes(**AXIS_STYLE)
-    fig_wf.update_yaxes(**AXIS_STYLE)
+    apply_light(fig_wf, height=300,
+                title="Improvement Economics — Before vs. After",
+                yaxis_title="Annual $ Impact")
     st.plotly_chart(fig_wf, width='stretch')
 
     # Multi-year projection
@@ -1479,12 +1485,10 @@ and net ROI — so you can answer the question every manager needs answered befo
         name="Cumulative Net Benefit",
     ))
     fig_proj.add_hline(y=0, line_dash="dash", line_color="#94a3b8")
-    fig_proj.update_layout(
-        **LIGHT, height=260, title="5-Year Cumulative Net Benefit",
-        yaxis_title="Cumulative $ Benefit",
-    )
-    fig_proj.update_xaxes(title_text="Year", tickmode="array", tickvals=years, **AXIS_STYLE)
-    fig_proj.update_yaxes(**AXIS_STYLE)
+    apply_light(fig_proj, height=260,
+                title="5-Year Cumulative Net Benefit",
+                yaxis_title="Cumulative $ Benefit")
+    fig_proj.update_xaxes(title_text="Year", tickmode="array", tickvals=years)
     st.plotly_chart(fig_proj, width='stretch')
 
     if net_roi > 0:
@@ -1586,10 +1590,19 @@ Rules:
                     timeout=30,
                 )
                 result = response.json()
-                brief_text = result["choices"][0]["message"]["content"]
-                st.session_state["ai_brief"] = brief_text
+                # Show actual API error if request failed
+                if response.status_code != 200:
+                    err_msg = result.get("error", {}).get("message", str(result))
+                    st.error(f"Groq API error ({response.status_code}): {err_msg}")
+                elif "choices" not in result:
+                    st.error(f"Unexpected response from Groq: {result}")
+                else:
+                    brief_text = result["choices"][0]["message"]["content"]
+                    st.session_state["ai_brief"] = brief_text
+            except KeyError as e:
+                st.error('GROQ_API_KEY not found in Streamlit secrets. Go to Settings → Secrets and add: GROQ_API_KEY = your_key_here')
             except Exception as e:
-                st.error(f"API error: {e}. Check your GROQ_API_KEY in Streamlit secrets.")
+                st.error(f"API error: {e}")
 
     if "ai_brief" in st.session_state:
         st.markdown(f'<div class="ai-block">{st.session_state["ai_brief"]}</div>', unsafe_allow_html=True)
