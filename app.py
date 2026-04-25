@@ -208,7 +208,10 @@ def run_analysis(df: pd.DataFrame, daily_volume: int, working_days: int,
         # Annual costs
         cost_per_min = cost_hr / 60
         cycle_cost_annual = cycle_min * cost_per_min * resources * annual_volume
-        wait_cost_annual  = wait_min  * cost_per_min * resources * annual_volume
+        # Wait cost = holding/carrying cost only (work item queuing, resource is NOT idle)
+        # Standard VSM costing: 20% of base rate, no resource multiplier
+        holding_rate = (cost_hr * 0.03) / 60  # 3% overhead rate for queue/lead time
+        wait_cost_annual  = wait_min * holding_rate * annual_volume
         rework_cost_annual = cycle_cost_annual * (rework_pct / 100)
         total_step_cost   = cycle_cost_annual + wait_cost_annual + rework_cost_annual
 
@@ -792,7 +795,7 @@ with st.sidebar:
     st.markdown("---")
 
     st.markdown('<div style="font-size:0.65rem;text-transform:uppercase;letter-spacing:0.1em;color:#475569;margin-bottom:8px">PROCESS SETTINGS</div>', unsafe_allow_html=True)
-    daily_volume  = st.number_input("Daily Process Volume (units/transactions)", min_value=1, value=50)
+    daily_volume  = st.number_input("Daily Process Volume (units/transactions)", min_value=1, value=10)
     working_days  = st.number_input("Working Days per Year", min_value=1, value=250)
     hours_per_day = st.number_input("Working Hours per Day", min_value=1.0, value=8.0, step=0.5)
 
