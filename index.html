@@ -1,0 +1,611 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ProcessGap — Business Process Intelligence</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,600&family=JetBrains+Mono:wght@400;500;600&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --white:   #FAFAF8;
+  --paper:   #F4F2EE;
+  --ink:     #0F1923;
+  --ink2:    #1E2D3A;
+  --teal:    #0B6E6E;
+  --teal2:   #0D8A8A;
+  --teal-bg: rgba(11,110,110,.06);
+  --red:     #C0392B;
+  --red2:    #E74C3C;
+  --red-bg:  rgba(192,57,43,.06);
+  --muted:   #6B7A8D;
+  --soft:    #9AAAB8;
+  --border:  #DDD8D0;
+  --serif:   'Playfair Display', Georgia, serif;
+  --mono:    'JetBrains Mono', 'Courier New', monospace;
+  --sans:    'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--white);
+  color: var(--ink);
+  font-family: var(--sans);
+  line-height: 1.6;
+  overflow-x: hidden;
+}
+
+.wrap { max-width: 1080px; margin: 0 auto; padding: 0 2.5rem; }
+
+/* ── NAV ──────────────────────────────────────────────────── */
+nav {
+  position: sticky; top: 0; z-index: 100;
+  background: rgba(250,250,248,.94);
+  backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+  padding: .85rem 0;
+}
+.nav-inner { display: flex; align-items: center; justify-content: space-between; }
+.nav-brand  { display: flex; align-items: center; gap: .7rem; }
+.nav-mark {
+  width: 30px; height: 30px; background: var(--ink);
+  display: flex; align-items: center; justify-content: center;
+}
+.nav-gap {
+  width: 0; height: 0;
+  border-left: 8px solid transparent;
+  border-right: 8px solid transparent;
+  border-top: 14px solid var(--red);
+  margin: 0 auto;
+}
+.nav-name {
+  font-family: var(--serif); font-size: 1.05rem; font-weight: 600;
+  color: var(--ink); letter-spacing: -.01em;
+}
+.nav-name span { color: var(--red); }
+.nav-links { display: flex; gap: 1.8rem; }
+.nav-links a {
+  font-family: var(--mono); font-size: .60rem; color: var(--muted);
+  text-decoration: none; letter-spacing: .1em; text-transform: uppercase;
+  transition: color .2s;
+}
+.nav-links a:hover { color: var(--teal); }
+.btn-launch {
+  background: var(--ink); color: var(--white);
+  font-family: var(--mono); font-size: .60rem; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: .42rem 1.1rem; text-decoration: none; transition: background .2s;
+}
+.btn-launch:hover { background: var(--teal); }
+
+/* ── HERO ─────────────────────────────────────────────────── */
+.hero {
+  padding: 5rem 0 0;
+  border-bottom: 1px solid var(--border);
+}
+.hero-grid {
+  display: grid; grid-template-columns: 1.05fr .95fr;
+  gap: 5rem; align-items: end; padding-bottom: 4rem;
+}
+.hero-kicker {
+  font-family: var(--mono); font-size: .58rem; letter-spacing: .18em;
+  text-transform: uppercase; color: var(--teal);
+  display: flex; align-items: center; gap: .6rem;
+  margin-bottom: 1.4rem;
+}
+.hero-kicker::before {
+  content: ''; display: block; width: 28px; height: 1px; background: var(--teal);
+}
+h1 {
+  font-family: var(--serif); font-size: clamp(2.6rem, 4.5vw, 4rem);
+  font-weight: 700; line-height: 1.05; letter-spacing: -.02em;
+  color: var(--ink); margin-bottom: 1.2rem;
+}
+h1 em { font-style: italic; color: var(--red); }
+.hero-deck {
+  font-size: .9rem; color: var(--muted); line-height: 1.75;
+  max-width: 460px; margin-bottom: 2rem;
+  padding-left: 1rem; border-left: 3px solid var(--teal);
+}
+.hero-ctas { display: flex; gap: .8rem; flex-wrap: wrap; }
+.btn-primary {
+  background: var(--ink); color: var(--white);
+  font-family: var(--mono); font-size: .62rem; font-weight: 600;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: .65rem 1.4rem; text-decoration: none;
+  transition: background .2s, transform .15s;
+  display: inline-flex; align-items: center; gap: .5rem;
+}
+.btn-primary:hover { background: var(--teal); transform: translateY(-1px); }
+.btn-outline {
+  border: 1.5px solid var(--ink); color: var(--ink);
+  font-family: var(--mono); font-size: .62rem;
+  letter-spacing: .1em; text-transform: uppercase;
+  padding: .65rem 1.4rem; text-decoration: none;
+  transition: background .2s, color .2s;
+  display: inline-flex; align-items: center; gap: .5rem;
+}
+.btn-outline:hover { background: var(--ink); color: var(--white); }
+
+/* ── Waste card ───────────────────────────────────────────── */
+.waste-card {
+  border: 1.5px solid var(--ink);
+  background: var(--white);
+  box-shadow: 5px 5px 0 var(--ink);
+  animation: tiltFloat 8s ease-in-out infinite;
+}
+@keyframes tiltFloat {
+  0%,100% { transform: rotate(-.5deg) translateY(0); }
+  50%      { transform: rotate(.5deg) translateY(-8px); }
+}
+.wc-header {
+  background: var(--ink); color: var(--white);
+  padding: .55rem 1.1rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.wc-title { font-family: var(--mono); font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; }
+.wc-tag   { font-family: var(--mono); font-size: .52rem; color: var(--soft); }
+.wc-body  { padding: 1.3rem; }
+.wc-stat-row { display: grid; grid-template-columns: repeat(2,1fr); gap: .7rem; margin-bottom: 1rem; }
+.wc-stat { background: var(--paper); padding: .75rem .9rem; }
+.wc-stat-l { font-family: var(--mono); font-size: .52rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 4px; }
+.wc-stat-v { font-family: var(--serif); font-size: 1.2rem; font-weight: 700; color: var(--ink); }
+.wc-stat-v.red   { color: var(--red); }
+.wc-stat-v.teal  { color: var(--teal); }
+
+.step-table { width: 100%; border-collapse: collapse; }
+.step-table th {
+  background: var(--ink); color: var(--white);
+  font-family: var(--mono); font-size: .52rem; letter-spacing: .07em;
+  text-transform: uppercase; padding: .3rem .6rem; text-align: left;
+}
+.step-table td { padding: .3rem .6rem; font-size: .72rem; font-family: var(--mono); border-bottom: 1px solid var(--border); }
+.step-table tr:last-child td { border-bottom: none; }
+.nva  { color: var(--red);  font-weight: 600; }
+.nnva { color: var(--teal); font-weight: 600; }
+.va   { color: #2E7D32;     font-weight: 600; }
+
+.recovery-banner {
+  margin-top: 1rem;
+  background: var(--red-bg); border: 1px solid rgba(192,57,43,.2);
+  padding: .9rem 1rem; display: flex; align-items: center; gap: .8rem;
+}
+.recovery-amount {
+  font-family: var(--serif); font-size: 1.6rem; font-style: italic;
+  font-weight: 700; color: var(--red); line-height: 1; white-space: nowrap;
+}
+.recovery-desc { font-family: var(--mono); font-size: .60rem; color: var(--muted); line-height: 1.5; }
+
+/* ── Section ──────────────────────────────────────────────── */
+.section { padding: 4rem 0; }
+.section + .section { border-top: 1px solid var(--border); }
+
+.eyebrow {
+  font-family: var(--mono); font-size: .58rem; letter-spacing: .16em;
+  text-transform: uppercase; color: var(--teal); margin-bottom: .6rem;
+}
+h2 {
+  font-family: var(--serif); font-size: 2rem; font-weight: 600;
+  line-height: 1.15; letter-spacing: -.015em; margin-bottom: 1.4rem;
+}
+h2 em { font-style: italic; color: var(--teal); }
+
+/* ── Method steps ─────────────────────────────────────────── */
+.steps { display: grid; grid-template-columns: repeat(5,1fr); gap: 1px; background: var(--border); margin-top: 2rem; }
+.step { background: var(--white); padding: 1.4rem 1.2rem; transition: background .2s; }
+.step:hover { background: var(--paper); }
+.step-num {
+  font-family: var(--mono); font-size: .58rem; color: var(--teal);
+  letter-spacing: .12em; margin-bottom: .7rem;
+}
+.step-title {
+  font-family: var(--serif); font-size: .95rem; font-weight: 600;
+  color: var(--ink); margin-bottom: .45rem; line-height: 1.2;
+}
+.step-desc { font-size: .78rem; color: var(--muted); line-height: 1.6; }
+.step-tag {
+  display: inline-block; margin-top: .7rem;
+  font-family: var(--mono); font-size: .52rem; letter-spacing: .07em;
+  color: var(--teal); border: 1px solid rgba(11,110,110,.3); padding: 2px 7px;
+}
+
+/* ── Problem/Solution split ──────────────────────────────── */
+.split { display: grid; grid-template-columns: 1fr 1fr; gap: 1px; background: var(--border); }
+.split-panel { background: var(--white); padding: 2.5rem; }
+.split-panel.dark { background: var(--ink); }
+.split-label {
+  font-family: var(--mono); font-size: .58rem; letter-spacing: .14em;
+  text-transform: uppercase; margin-bottom: 1rem;
+}
+.split-panel.dark .split-label { color: var(--soft); }
+.split-panel .split-label { color: var(--muted); }
+.split-hed {
+  font-family: var(--serif); font-size: 1.4rem; font-weight: 600;
+  line-height: 1.2; margin-bottom: 1rem;
+}
+.split-panel.dark .split-hed { color: var(--white); }
+.split-body { font-size: .85rem; line-height: 1.75; }
+.split-panel.dark .split-body { color: rgba(250,250,248,.65); }
+.split-panel .split-body { color: var(--muted); }
+
+.cost-list { margin-top: 1.2rem; }
+.cost-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: .5rem 0; border-bottom: 1px solid rgba(250,250,248,.1);
+  font-family: var(--mono); font-size: .72rem;
+}
+.cost-item:last-child { border-bottom: none; }
+.cost-item .name { color: rgba(250,250,248,.6); }
+.cost-item .price { color: var(--red2); font-weight: 600; }
+
+/* ── Method table ─────────────────────────────────────────── */
+.meth-table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+.meth-table th {
+  background: var(--ink); color: var(--white);
+  font-family: var(--mono); font-size: .58rem; letter-spacing: .08em;
+  text-transform: uppercase; padding: .65rem .9rem; text-align: left;
+}
+.meth-table td { padding: .65rem .9rem; border-bottom: 1px solid var(--border); }
+.meth-table tr:nth-child(even) td { background: var(--paper); }
+.meth-table code { font-family: var(--mono); font-size: .72rem; color: var(--teal); }
+
+/* ── Stats strip ──────────────────────────────────────────── */
+.stats { background: var(--ink); padding: 2.5rem 0; }
+.stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0; }
+.stat { padding: 1.2rem 2rem; border-right: 1px solid rgba(255,255,255,.08); }
+.stat:last-child { border-right: none; }
+.stat-val {
+  font-family: var(--serif); font-size: 2.2rem; font-weight: 700;
+  font-style: italic; color: var(--white); line-height: 1;
+}
+.stat-val.red { color: var(--red2); }
+.stat-val.teal { color: var(--teal2); }
+.stat-lbl {
+  font-family: var(--mono); font-size: .58rem; color: rgba(255,255,255,.35);
+  letter-spacing: .1em; text-transform: uppercase; margin-top: .35rem;
+}
+
+/* ── Refs ─────────────────────────────────────────────────── */
+.chip-row { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: 1rem; }
+.chip {
+  font-family: var(--mono); font-size: .60rem; padding: 3px 10px;
+  border: 1px solid var(--border); color: var(--muted); background: var(--paper);
+}
+.chip.meth { border-color: rgba(11,110,110,.35); color: var(--teal); }
+
+/* ── Author ───────────────────────────────────────────────── */
+.author-row {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 2.5rem 0; border-top: 1.5px solid var(--ink);
+}
+.author-name {
+  font-family: var(--serif); font-size: 1.1rem; font-style: italic;
+  color: var(--ink); font-weight: 600;
+}
+.author-meta { font-family: var(--mono); font-size: .60rem; color: var(--muted); margin-top: .2rem; }
+.author-btns { display: flex; gap: .5rem; }
+.a-btn {
+  font-family: var(--mono); font-size: .58rem; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--muted);
+  border: 1px solid var(--border); padding: .35rem .85rem;
+  text-decoration: none; transition: all .2s;
+}
+.a-btn:hover { border-color: var(--ink); color: var(--ink); }
+
+/* ── Footer ───────────────────────────────────────────────── */
+footer {
+  border-top: 1px solid var(--border); padding: 1.2rem 0;
+  font-family: var(--mono); font-size: .57rem; color: var(--soft);
+  display: flex; justify-content: space-between;
+}
+
+/* ── Animations ──────────────────────────────────────────── */
+@keyframes fadeUp {
+  from { opacity: 0; transform: translateY(20px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fu  { animation: fadeUp .65s ease both; }
+.d1  { animation-delay: .08s; }
+.d2  { animation-delay: .16s; }
+.d3  { animation-delay: .24s; }
+.d4  { animation-delay: .32s; }
+
+/* ── Responsive ──────────────────────────────────────────── */
+@media (max-width: 820px) {
+  .hero-grid    { grid-template-columns: 1fr; gap: 2.5rem; padding-bottom: 2.5rem; }
+  .steps        { grid-template-columns: 1fr 1fr; }
+  .split        { grid-template-columns: 1fr; }
+  .stats-grid   { grid-template-columns: repeat(2,1fr); }
+  .author-row   { flex-direction: column; gap: 1.2rem; }
+  .nav-links    { display: none; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav>
+  <div class="wrap nav-inner">
+    <div class="nav-brand">
+      <div class="nav-mark"><div class="nav-gap"></div></div>
+      <span class="nav-name">Process<span>Gap</span></span>
+    </div>
+    <div class="nav-links">
+      <a href="#method">Method</a>
+      <a href="#problem">Problem</a>
+      <a href="#algorithms">Algorithms</a>
+    </div>
+    <a href="https://processgap.streamlit.app" target="_blank" class="btn-launch">Launch App →</a>
+  </div>
+</nav>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="wrap">
+    <div class="hero-grid">
+      <div>
+        <div class="hero-kicker fu">Business Process Intelligence · VSM · DMAIC · 2025</div>
+        <h1 class="fu d1">
+          Find the step<br>that costs you<br>the <em>most.</em>
+        </h1>
+        <p class="hero-deck fu d2">
+          ProcessGap applies Value Stream Mapping and Six Sigma DMAIC
+          to any business process in 10 minutes. Map your steps, classify
+          waste, and get back a ranked list of bottlenecks with their
+          annual dollar cost — without a $200K consulting engagement.
+        </p>
+        <div class="hero-ctas fu d3">
+          <a href="https://processgap.streamlit.app" target="_blank" class="btn-primary">↗ Open Live App</a>
+          <a href="https://github.com/rutwiksatish/processgap" target="_blank" class="btn-outline">⎇ GitHub</a>
+        </div>
+      </div>
+
+      <!-- Waste card -->
+      <div class="waste-card fu d4">
+        <div class="wc-header">
+          <span class="wc-title">Invoice Approval — 8 Steps</span>
+          <span class="wc-tag">Demo process</span>
+        </div>
+        <div class="wc-body">
+          <div class="wc-stat-row">
+            <div class="wc-stat">
+              <div class="wc-stat-l">Process Efficiency</div>
+              <div class="wc-stat-v red">1.1%</div>
+            </div>
+            <div class="wc-stat">
+              <div class="wc-stat-l">Annual Waste Cost</div>
+              <div class="wc-stat-v red">$222,271</div>
+            </div>
+            <div class="wc-stat">
+              <div class="wc-stat-l">Annual Process Cost</div>
+              <div class="wc-stat-v">$428,522</div>
+            </div>
+            <div class="wc-stat">
+              <div class="wc-stat-l">Recovery Potential</div>
+              <div class="wc-stat-v teal">$138,515</div>
+            </div>
+          </div>
+          <table class="step-table">
+            <thead>
+              <tr><th>Step</th><th>Type</th><th>Utilization</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Invoice Receipt</td><td><span class="va">VA</span></td><td>42%</td></tr>
+              <tr><td>Manager Review</td><td><span class="nva">NVA</span></td><td>187%</td></tr>
+              <tr><td>Duplicate Check</td><td><span class="nnva">NNVA</span></td><td>65%</td></tr>
+              <tr><td>Approval Queue</td><td><span class="nva">NVA</span></td><td>210%</td></tr>
+              <tr><td>Payment Release</td><td><span class="va">VA</span></td><td>38%</td></tr>
+            </tbody>
+          </table>
+          <div class="recovery-banner">
+            <div class="recovery-amount">$222K</div>
+            <div class="recovery-desc">annual recoverable waste<br>identified in this process</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- STATS -->
+<div class="stats">
+  <div class="wrap">
+    <div class="stats-grid">
+      <div class="stat">
+        <div class="stat-val red">$222K</div>
+        <div class="stat-lbl">Waste identified in demo</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">5</div>
+        <div class="stat-lbl">Analysis modules</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val teal">10 min</div>
+        <div class="stat-lbl">Time to first result</div>
+      </div>
+      <div class="stat">
+        <div class="stat-val">$0</div>
+        <div class="stat-lbl">vs. $80K–$500K alternatives</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PROBLEM / SOLUTION -->
+<section class="section" id="problem">
+  <div class="wrap">
+    <div class="split">
+      <div class="split-panel dark">
+        <div class="split-label">The Problem</div>
+        <div class="split-hed">Every company knows which processes feel slow. Nobody knows which step costs the most.</div>
+        <div class="split-body">
+          Process mining tools exist. They cost $80K–$500K to implement.
+          Management consultants charge $200K for the same analysis.
+          Companies between $5M and $500M in revenue have nothing.
+          The same bottlenecks persist for years because nobody quantified them
+          well enough to justify the fix.
+        </div>
+        <div class="cost-list">
+          <div class="cost-item"><span class="name">Celonis / UiPath</span><span class="price">$80K–$500K</span></div>
+          <div class="cost-item"><span class="name">Management consulting</span><span class="price">$200K+</span></div>
+          <div class="cost-item"><span class="name">Mid-market companies</span><span class="price">Nothing</span></div>
+        </div>
+      </div>
+      <div class="split-panel">
+        <div class="split-label">The Solution</div>
+        <div class="split-hed" style="color:var(--teal)">ProcessGap runs the same analysis in 10 minutes.</div>
+        <div class="split-body">
+          Map your process steps, enter cycle times and resource costs,
+          classify each step as VA / NNVA / NVA. ProcessGap computes
+          utilization at every step using Little's Law, identifies the
+          binding constraint, quantifies the annual waste cost, and models
+          the ROI of fixing each bottleneck.
+          <br><br>
+          No consultants. No six-figure software license.
+          No six-week implementation project.
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- METHOD STEPS -->
+<section class="section" id="method">
+  <div class="wrap">
+    <p class="eyebrow">Five-Step Analysis</p>
+    <h2>The method, not the <em>marketing.</em></h2>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-title">Map Your Process</div>
+        <div class="step-desc">Enter each step with cycle time, wait time, resources, and cost. Classify as VA, NNVA, or NVA per VSM conventions.</div>
+        <span class="step-tag">VSM</span>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-title">VSM Analysis</div>
+        <div class="step-desc">Calculates total cycle time, value-added ratio, and process efficiency. Computes annual waste cost per step in dollars.</div>
+        <span class="step-tag">Six Sigma DMAIC</span>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-title">Bottleneck Detection</div>
+        <div class="step-desc">Utilization analysis via Little's Law identifies the step where demand exceeds capacity — the true constraint, not a guess.</div>
+        <span class="step-tag">Little's Law</span>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-title">ROI Simulation</div>
+        <div class="step-desc">Models the annual dollar value of fixing each bottleneck. Conservative recovery estimate based on current waste rate.</div>
+        <span class="step-tag">ROI Modeling</span>
+      </div>
+      <div class="step">
+        <div class="step-num">05</div>
+        <div class="step-title">AI Brief</div>
+        <div class="step-desc">Groq (Llama 3.3 70B) generates a plain-English summary structured for VP/COO review — from solver output numbers only.</div>
+        <span class="step-tag">Groq · Llama 3.3</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ALGORITHM TABLE -->
+<section class="section" id="algorithms">
+  <div class="wrap">
+    <p class="eyebrow">Methodology Reference</p>
+    <h2>Every calculation <em>cited.</em></h2>
+    <table class="meth-table" style="margin-top:1.5rem;">
+      <thead>
+        <tr>
+          <th>Analysis</th>
+          <th>Method / Formula</th>
+          <th>Output</th>
+          <th>Source</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><strong>VSM Classification</strong></td>
+          <td>VA / NNVA / NVA per step</td>
+          <td>Waste type breakdown</td>
+          <td>Womack &amp; Jones (1996)</td>
+        </tr>
+        <tr>
+          <td><strong>Process Efficiency</strong></td>
+          <td><code>VA time / Total lead time</code></td>
+          <td>% value-added</td>
+          <td>Lean thinking standard</td>
+        </tr>
+        <tr>
+          <td><strong>Bottleneck Detection</strong></td>
+          <td><code>Utilization = λ / μ</code> (Little's Law)</td>
+          <td>Binding constraint step</td>
+          <td>Little (1961), Ops. Research</td>
+        </tr>
+        <tr>
+          <td><strong>Annual Waste Cost</strong></td>
+          <td><code>NVA cost × volume × working days</code></td>
+          <td>$ waste per year</td>
+          <td>DMAIC cost-of-quality model</td>
+        </tr>
+        <tr>
+          <td><strong>ROI Simulation</strong></td>
+          <td>Conservative recovery = 60% of waste cost</td>
+          <td>Annual saving estimate</td>
+          <td>Six Sigma CoQ framework</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- STACK + REFS -->
+<section class="section">
+  <div class="wrap">
+    <p class="eyebrow">Technical Stack</p>
+    <h2>Python · Streamlit · Groq</h2>
+    <div class="chip-row">
+      <span class="chip">Python 3.11+</span>
+      <span class="chip">Streamlit</span>
+      <span class="chip">Pandas</span>
+      <span class="chip">Plotly</span>
+      <span class="chip">Groq API — Llama 3.3 70B</span>
+      <span class="chip">Playfair Display · JetBrains Mono</span>
+      <span class="chip">GitHub Pages (this site)</span>
+    </div>
+    <div class="chip-row">
+      <span class="chip meth">Womack &amp; Jones (1996) — Lean Thinking</span>
+      <span class="chip meth">Little, J.D.C. (1961) — Operations Research</span>
+      <span class="chip meth">Six Sigma DMAIC — Cost of Quality Framework</span>
+      <span class="chip meth">APICS — VSM Classification Standard</span>
+    </div>
+  </div>
+</section>
+
+<!-- AUTHOR -->
+<div class="wrap">
+  <div class="author-row">
+    <div>
+      <div class="author-name">Rutwik Satish</div>
+      <div class="author-meta">MS Engineering Management · Northeastern University · May 2026 · STEM OPT 36 months</div>
+    </div>
+    <div class="author-btns">
+      <a href="https://linkedin.com/in/rutwiksatish" target="_blank" class="a-btn">LinkedIn</a>
+      <a href="https://github.com/rutwiksatish" target="_blank" class="a-btn">GitHub</a>
+      <a href="mailto:satish.rutwik@gmail.com" class="a-btn">Email</a>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer>
+  <div class="wrap" style="display:flex;justify-content:space-between;width:100%;">
+    <span>ProcessGap · VSM · Six Sigma DMAIC · Little's Law · Groq AI</span>
+    <span>© 2025 Rutwik Satish</span>
+  </div>
+</footer>
+
+</body>
+</html>
