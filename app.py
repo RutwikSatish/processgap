@@ -181,9 +181,9 @@ def run_analysis(df: pd.DataFrame, daily_volume: int, working_days: int,
     Core VSM + bottleneck analysis engine.
     Applies Industrial Engineering methodology:
     - Process Efficiency = VA Time / Total Cycle Time
-    - Bottleneck = step with highest utilization (demand / capacity)
+    - Bottleneck = step with the highest utilization (demand/capacity)
     - Annual waste = NVA cost + rework cost + wait cost
-    - Improvement ROI = projected cost recovery from fixing bottleneck
+    - Improvement ROI = projected cost recovery from fixing the bottleneck
     """
     results = []
     annual_volume = daily_volume * working_days
@@ -822,7 +822,7 @@ if "Overview" in module:
   <h1 style="font-size:2rem;font-weight:600;margin:0;letter-spacing:-0.02em">ProcessGap</h1>
   <p style="color:#64748b;font-size:0.9rem;margin-top:6px;max-width:680px">
     Find the step in your business process that's costing you the most money.
-    Quantify it. Fix it. Measure the ROI — without a $200K consulting engagement.
+    Quantify it. Fix it. Measure the ROI
   </p>
 </div>
 """, unsafe_allow_html=True)
@@ -835,9 +835,7 @@ if "Overview" in module:
   <p style="font-size:0.87rem;line-height:1.75;color:#374151;margin:0">
     Every company has broken processes. Most know which ones feel slow.
     What nobody knows is <strong>which specific step costs the most money</strong>
-    and what fixing it is actually worth. Process mining tools (Celonis, UiPath)
-    cost $80K–$500K to implement. Management consultants charge $200K for the
-    same analysis. Companies between $5M and $500M in revenue have nothing.
+    and what fixing it is actually worth.
     <br><br>
     The result: the same bottlenecks persist for years because nobody
     has quantified them well enough to justify the fix.
