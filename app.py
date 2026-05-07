@@ -9,10 +9,6 @@ WHY THIS EXISTS:
   What they don't know is which specific step is costing the most money,
   what it would take to fix it, and whether the fix is worth the investment.
 
-  Process mining tools (Celonis, UiPath) cost $80K–$500K to implement.
-  Management consultants charge $200K to produce the same analysis.
-  Companies with 50–5,000 employees have nothing affordable.
-
   ProcessGap applies Value Stream Mapping and Six Sigma DMAIC logic to any
   business process — in 10 minutes, for free — and answers the question
   every operations leader actually needs answered:
